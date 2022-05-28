@@ -76,7 +76,7 @@ On_IWhite='\033[0;107m'   # White
 help_menu() {
   echo -e "Usage:
 
-  ${Green}${0##*/}${Color_Off} ${Cyan}-u=<username> -p=<password> -s=<ip:port> [FLAGS] | -d ${Color_Off}
+  ${Green}${0##*/}${Color_Off} ${Cyan}-u=USERNAME -p=PASSWORD -s=IP:PORT [FLAGS] | -d ${Color_Off}
 
 Options:
 
@@ -102,28 +102,28 @@ Flags:
 }
 
 view_help () {
-    printf "View ${Cyan}[-h]${Color_Off} help for more details./n/n"
+    printf "View ${Cyan}[-h]${Color_Off} help for more details.\n\n"
 }
 
 file_error () {
-    
+    printf "${BRed}... The file $1 not exist or is empty.${Color_Off}\n"
 }
 
 all_env=true
 
 # process flags
 pointer=1
+param_count=0
 while [[ $pointer -le $# ]]; do
    param=${!pointer}
    if [[ $param != "-"* ]]; then 
       ((pointer++)) # not a parameter flag so advance pointer
    else
+      ((param_count++))
       case $param in
          # paramter-flags with arguments
-         -u=*|--username=*) username="${param#*=}"
-                ;;
-         -p=*|--password=*) password="${param#*=}"
-                ;;
+         -u=*|--username=*) username="${param#*=}";;
+         -p=*|--password=*) password="${param#*=}";;
          -s=*|--proxy=*) proxy="${param#*=}";;
          
          -h|--help) help_menu 
@@ -132,18 +132,18 @@ while [[ $pointer -le $# ]]; do
 
          # binary flags
         #  -a|--all-env) all_env=true;;
-         -e|--environment) environment=true; $all_env=false;;
-            --apt) apt=true; $all_env=false;;
-            --git) git=true; $all_env=false;;
-            --wget) wget=true; $all_env=false;;
-            --curl) curl=true; $all_env=false;;
-            --composer) composer=true; $all_env=false;;
-            --npm) npm=true; $all_env=false;;
-            --yarn) yarn=true; $all_env=false;;
-            --symfony) symfony=true; $all_env=false;;
+         -e|--environment) environment=true; all_env=false;;
+            --apt) apt=true; all_env=false;;
+            --git) git=true; all_env=false;;
+            --wget) wget=true; all_env=false;;
+            --curl) curl=true; all_env=false;;
+            --composer) composer=true; all_env=false;;
+            --npm) npm=true; all_env=false;;
+            --yarn) yarn=true; all_env=false;;
+            --symfony) symfony=true; all_env=false;;
 
-         -*) printf "Unknow argument${Red} ${param} ${Color_Off}\n"
-             help_menu
+         -*) printf "Unknow or bad argument ${Red}${param}.${Color_Off}\n"
+             view_help
              exit 1;;
       esac
 
@@ -153,6 +153,16 @@ while [[ $pointer -le $# ]]; do
          || set -- ${@:((pointer + 1)):$#};
    fi
 done
+
+# if [[ -n $environment || -n $apt || -n $git || -n $wget || -n $curl || -n $composer || -n $npm || -n $yarn || -n $symfony ]]; then
+#     all_env=false
+# fi
+
+if [[ $param_count == 0 ]]; then
+    printf "Bad usage for ${Green}${0##*/}${Color_Off}\n"
+    view_help
+    exit 1
+fi
 
 if [[ $all_env == true ]]; then
     environment=true
@@ -210,7 +220,7 @@ else
 
     if [[ -n $username && -n $password && -n $proxy ]]; then
         URL="http://$username:$password@$proxy"
-        printf "Proxy URL:${Cyan}${On_IBlack} ${URL} ${Color_Off}\n"
+        printf "Proxy URL:${On_IGreen} ${URL} ${Color_Off}\n"
     fi
 
     if [[ $all_env == true ]]; then
@@ -236,7 +246,7 @@ if [[ -n $environment && $environment == true ]]; then
         # unset dns_proxy
         # unset rsync_proxy
         # unset all_proxy
-        printf "Unset proxy variables from environment: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy variables from environment: ${BGreen}OK${Color_Off}\n"
     else
         # export http_proxy="${URL}"
         # export HTTP_PROXY="${URL}"
@@ -250,7 +260,7 @@ if [[ -n $environment && $environment == true ]]; then
         # export dns_proxy="${URL}"
         # export rsync_proxy="${URL}"
         # export all_proxy="${URL}"
-        printf "Set proxy variables for environment: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy variables for environment: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
@@ -260,11 +270,11 @@ fi
 if [[ -n $apt && $apt == true ]]; then
     if [[ $delete == true ]]; then
         # sudo sed -i '/Proxy/d' /etc/apt/apt.conf
-        printf "Unset proxy config for apt: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy config for apt: ${BGreen}OK${Color_Off}\n"
     else
         # printf "Acquire::http::Proxy \"${URL}\"\n" | sudo tee /etc/apt/apt.conf > /dev/null
         # printf "Acquire::https::Proxy \"${URL}\"\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
-        printf "Set proxy for apt: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy for apt: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
@@ -274,10 +284,10 @@ fi
 if [[ -n $git && $git == true ]]; then
     if [[ $delete == true ]]; then
         # git config --global --unset http.proxy
-        printf "Unset proxy config for git: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy config for git: ${BGreen}OK${Color_Off}\n"
     else
         # git config --global http.proxy ${URL}
-        printf "Set proxy config for git: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy config for git: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
@@ -286,20 +296,20 @@ fi
 ######################
 if [[ -n $wget && $wget == true ]]; then
     if [[ $delete == true ]]; then
-        printf "Delete proxy config for wget: "
+        printf "... Delete proxy config for wget: "
         if [[ -s ~/.wgetrc ]]; then 
             # sed -i '/proxy/d' ~/.wget
             printf "${BGreen}OK${Color_Off}\n"
         else
             printf "${BRed}FAIL${Color_Off}\n"
-            printf "${BRed}... The file ~/.wgetrc do not exist or is empty.${Color_Off}\n"
+            file_error '~/.wgetrc'
         fi
     else
         # echo "https_proxy = ${URL}/" > ~/.wgetrc
         # echo "http_proxy = ${URL}/" >> ~/.wgetrc
         # echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
         # echo "use_proxy = on" >> ~/.wgetrc
-        printf "Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
@@ -308,39 +318,27 @@ fi
 ######################
 if [[ -n $curl && $curl == true ]]; then
     if [[ $delete == true ]]; then
-        printf "Delete proxy config for curl: "
+        printf "... Delete proxy config for curl: "
 
         if [[ -s ~/.curlrc ]]; then
             # sed -i '/proxy/d' ~/.curlrc
             printf "${BGreen}OK${Color_Off}\n"
         else
             printf "${BRed}FAIL${Color_Off}\n"
-            printf "${BRed}... The file ~/.curlrc do not exist or is empty.${Color_Off}\n"
+            file_error '~/.curlrc'
         fi
     else
         # echo "proxy=${URL}" > ~/.curlrc
-        printf "Set proxy config for curl: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy config for curl: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
 ######################
 # COMPOSER SETTINGS
 ######################
-if [[ -n $composer ]]; then
-    if [[ $composer == true ]]; then
-        if [[ ! $environment == true ]]; then
-            # export http_proxy="${URL}"
-            # export HTTP_PROXY="${URL}"
-            # export https_proxy="${URL}"
-            # export HTTPS_PROXY="${URL}"
-            # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
-            # export HTTPS_PROXY_REQUEST_FULLURI=0 #
-            # export no_proxy="127.0.0.10/8, localhost, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-            # export NO_PROXY="127.0.0.10/8, localhost, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-        fi
-        printf "Set proxy for composer: ${BGreen}OK${Color_Off}\n"
-    else
-        if [[ ! $environment == false ]]; then
+if [[ -n $composer && $composer == true ]]; then
+    if [[ $delete == true ]]; then
+        if [[ -z $environment ]]; then
             # unset http_proxy
             # unset HTTP_PROXY
             # unset https_proxy
@@ -349,16 +347,33 @@ if [[ -n $composer ]]; then
             # unset HTTPS_PROXY_REQUEST_FULLURI
             # unset no_proxy
             # unset NO_PROXY
+            echo
         fi
-        printf "Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
+    else
+        if [[ -z $environment ]]; then
+            # export http_proxy="${URL}"
+            # export HTTP_PROXY="${URL}"
+            # export https_proxy="${URL}"
+            # export HTTPS_PROXY="${URL}"
+            # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
+            # export HTTPS_PROXY_REQUEST_FULLURI=0 #
+            # export no_proxy="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+            # export NO_PROXY="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+            echo
+        fi
+        printf "... Set proxy config for composer: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
 ######################
 # NPM SETTINGS
 ######################
-if [[ -n $npm ]]; then
-    if [[ $npm == true ]]; then
+if [[ -n $npm && $npm == true ]]; then
+    if [[ $delete == true ]]; then
+        # npm config delete proxy http_proxy http-proxy https_proxy https-proxy registry strict-ssl
+        printf "... Delete proxy config for npm: ${BGreen}OK${Color_Off}\n"
+    else
         # npm config set registry http://registry.npmjs.org/
         # npm config set proxy "${URL}"
         # npm config set https-proxy "${URL}"
@@ -370,46 +385,45 @@ if [[ -n $npm ]]; then
         # echo "http_proxy=${URL}" >> ~/.npmrc
         # echo "https_proxy=${URL}" >> ~/.npmrc
         # echo "https-proxy=${URL}" >> ~/.npmrc
-        printf "Set proxy for npm: ${BGreen}OK${Color_Off}\n"
-    else
-        # npm config delete proxy http_proxy http-proxy https_proxy https-proxy registry strict-ssl
-        printf "Delete proxy config for npm: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy for npm: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
 ######################
 # YARN SETTINGS
 ######################
-if [[ -n $yarn ]]; then
-    if [[ $yarn == true ]]; then
-        # yarn config set proxy ${URL} > /dev/null
-        # yarn config set https-proxy ${URL} > /dev/null
-        # yarn config set strict-ssl false > /dev/null
-        printf "Set proxy config for yarn: ${BGreen}OK${Color_Off}\n"
-    else
+if [[ -n $yarn && $yarn == true ]]; then
+    if [[ $delete == true ]]; then
         # yarn config delete proxy > /dev/null
         # yarn config delete https-proxy > /dev/null
         # yarn config delete strict-ssl > /dev/null
-        printf "Delete proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+    else
+        # yarn config set proxy ${URL} > /dev/null
+        # yarn config set https-proxy ${URL} > /dev/null
+        # yarn config set strict-ssl false > /dev/null
+        printf "... Set proxy config for yarn: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
 ######################
 # SYMFONY SETTINGS
 ######################
-if [[ -n $symfony ]]; then
-    if [[ $symfony == true ]]; then
-        if [[ ! $environment == true ]]; then
-            # export http_proxy="${URL}"
-            # export https_proxy="${URL}"
-        fi
-        printf "Set proxy for symfony: ${BGreen}OK${Color_Off}\n"
-    else
-        if [[ ! $environment == false ]]; then
+if [[ -n $symfony && $symfony == true ]]; then
+    if [[ $delete == true ]]; then
+        if [[ -z $environment ]]; then
             # unset http_proxy
             # unset https_proxy
+            echo
         fi
-        printf "Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
+        printf "... Delete proxy config for symfony: ${BGreen}OK${Color_Off}\n"
+    else
+        if [[ -z $environment ]]; then
+            # export http_proxy="${URL}"
+            # export https_proxy="${URL}"
+            echo
+        fi
+        printf "... Set proxy config for symfony: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 

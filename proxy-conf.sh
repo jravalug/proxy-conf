@@ -76,7 +76,9 @@ On_IWhite='\033[0;107m'   # White
 help_menu() {
   echo -e "Usage:
 
-  ${Green}${0##*/}${Color_Off} ${Cyan}-u=USERNAME -p=PASSWORD -s=IP:PORT [FLAGS] | -d ${Color_Off}
+  ${Green}${0##*/}${Color_Off} ${Cyan}[-u=USERNAME -p=PASSWORD -s=IP:PORT] [FLAGS] | [-d] [FLAGS] ${Color_Off}
+
+  If do not expecify an environmet flag, the proxy config will set for all of then.
 
 Options:
 
@@ -88,7 +90,8 @@ Flags:
 
   -h, --help          display this help and exit.
   -d, --delete        delete proxy configuration for all environment.
-  -a, --all-env       Config proxy for all environments
+  -f, --force         force the proxy config.
+
   -e, --environment   Export proxy variables for environment
       --apt           Config proxy for apt
       --git           Config proxy for git
@@ -109,13 +112,28 @@ file_error_msg () {
     printf "${BRed}... The file $1 not exist or is empty.${Color_Off}\n"
 }
 
+set_proxy_msg () {
+    printf "... Set proxy config for $1: "
+    if [[ $2 == true ]]; then
+        printf "${BGreen}OK${Color_Off}\n"
+    else
+        printf "${BRed}FAIL${Color_Off}\n"
+        case $3 in
+            "allreadyexist") printf "... ... Allready existe a proxy config for apt:\n";;
+            "useforce") printf "${Color_Off}... ... If you want to override this config use ${Cyan}[-f]${Color_Off} flag.\n";;
+        esac
+    fi
+}
+
 delete_proxy_msg () {
     printf "... Delete proxy config for $1: "
     if [[ $2 == true ]]; then
         printf "${BGreen}OK${Color_Off}\n"
     else
         printf "${BRed}FAIL${Color_Off}\n"
-        printf "$3\n"
+        case $3 in
+            "misconfig") printf "... ... There is no proxy config defined for apt.";;
+        esac
     fi
 }
 
@@ -128,6 +146,27 @@ command_exist () {
         printf "$command_exist_return"
     fi
 }
+
+use_force_msg () {
+    printf "${Color_Off}... ... If you want to override this config use ${Cyan}[-f]${Color_Off} flag.\n"
+}
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+set_apt_proxy () {
+    printf "Acquire::http::Proxy \"${URL}\"\n" | sudo tee /etc/apt/apt.conf > /dev/null
+    printf "Acquire::https::Proxy \"${URL}\"\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
+}
+delete_apt_proxy () {
+    sudo sed -i '/Proxy/d' /etc/apt/apt.conf
+}
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
 
 all_env=true
 
@@ -149,6 +188,7 @@ while [[ $pointer -le $# ]]; do
          -h|--help) help_menu 
               exit 0;;
          -d|--delete) delete=true;;
+         -f|--force) force=true;;
 
          # binary flags
         #  -a|--all-env) all_env=true;;
@@ -289,12 +329,28 @@ fi
 ######################
 if [[ -n $apt && $apt == true ]]; then
     if [[ $delete == true ]]; then
-        # sudo sed -i '/Proxy/d' /etc/apt/apt.conf
-        printf "... Delete proxy config for apt: ${BGreen}OK${Color_Off}\n"
+        if cat /etc/apt/apt.conf | grep Proxy > /dev/null ; then
+            delete_apt_proxy
+            delete_proxy_msg "apt" true
+        else
+            delete_proxy_msg "apt" false "misconfig"
+        fi
     else
-        # printf "Acquire::http::Proxy \"${URL}\"\n" | sudo tee /etc/apt/apt.conf > /dev/null
-        # printf "Acquire::https::Proxy \"${URL}\"\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
-        printf "... Set proxy for apt: ${BGreen}OK${Color_Off}\n"
+        if cat /etc/apt/apt.conf | grep Proxy > /dev/null ; then 
+            if [[ $force == true ]]; then
+                delete_apt_proxy
+                set_apt_proxy
+                set_proxy_msg "apt" true
+            else
+                set_proxy_msg "apt" false "allreadyexist"
+                printf "... ... ${BRed}"
+                cat /etc/apt/apt.conf | grep Proxy
+                use_force_msg           
+            fi
+        else 
+            set_apt_proxy
+            set_proxy_msg "apt" true
+        fi
     fi
 fi
 

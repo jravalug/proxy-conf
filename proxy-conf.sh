@@ -101,12 +101,32 @@ Flags:
   "
 }
 
-view_help () {
+view_help_msg () {
     printf "View ${Cyan}[-h]${Color_Off} help for more details.\n\n"
 }
 
-file_error () {
+file_error_msg () {
     printf "${BRed}... The file $1 not exist or is empty.${Color_Off}\n"
+}
+
+delete_proxy_msg () {
+    printf "... Delete proxy config for $1: "
+    if [[ $2 == true ]]; then
+        printf "${BGreen}OK${Color_Off}\n"
+    else
+        printf "${BRed}FAIL${Color_Off}\n"
+        printf "$3\n"
+    fi
+}
+
+command_exist () {
+    if ! command -v $i > /dev/null ; then
+        local command_exist_return="The command ${BRed}$1${Color_Off} is not installed in your system."
+        printf "$command_exist_return"
+    else
+        local command_exist_return=""
+        printf "$command_exist_return"
+    fi
 }
 
 all_env=true
@@ -143,7 +163,7 @@ while [[ $pointer -le $# ]]; do
             --symfony) symfony=true; all_env=false;;
 
          -*) printf "Unknow or bad argument ${Red}${param}.${Color_Off}\n"
-             view_help
+             view_help_msg
              exit 1;;
       esac
 
@@ -160,7 +180,7 @@ done
 
 if [[ $param_count == 0 ]]; then
     printf "Bad usage for ${Green}${0##*/}${Color_Off}\n"
-    view_help
+    view_help_msg
     exit 1
 fi
 
@@ -180,7 +200,7 @@ fi
 if [[ -n $delete ]]; then
     if [[ -n $username || -n $password || -n $proxy ]]; then
         printf "If ${Red}[-d]${Color_Off} flag is active, then options ${Red}[-u -p -s]${Color_Off} can't be used.\n"
-        view_help
+        view_help_msg
         exit 1
     fi
 
@@ -190,30 +210,30 @@ if [[ -n $delete ]]; then
 else
     if [[ -z $username ]]; then
         printf "The option ${Red}[-u=USERNAME]${Color_Off} is necesary.\n"
-        view_help
+        view_help_msg
         exit 1
     else
         if [[ ! $username =~ ^[a-z]{2,30}\.[a-z]{2,30}$ ]]; then
             printf "The username ${Red}${username}${Color_Off} is not allow.\n"
-            view_help
+            view_help_msg
             exit 1
         fi
     fi
 
     if [[ -z $password ]]; then
         printf "The option ${Red}[-p=PASSWORD]${Color_Off} is necesary.\n"
-        view_help
+        view_help_msg
         exit 1
     fi
 
     if [[ -z $proxy ]]; then
         printf "The option ${Red}[-s=IP:PORT]${Color_Off} is necesary.\n"
-        view_help 
+        view_help_msg
         exit 1
     else
         if [[ ! $proxy =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(\:[0-9]+)$ ]]; then
             printf "The ${Red}server=$proxy${Color_Off} is not allow.\n"
-            view_help
+            view_help_msg
             exit 1
         fi
     fi
@@ -282,12 +302,21 @@ fi
 # GIT SETTINGS
 ######################
 if [[ -n $git && $git == true ]]; then
-    if [[ $delete == true ]]; then
-        # git config --global --unset http.proxy
-        printf "... Delete proxy config for git: ${BGreen}OK${Color_Off}\n"
+    if command -v git > /dev/null ; then
+        if [[ $delete == true ]]; then
+            if git config --global --unset attp.proxy > /dev/null; then
+                delete_proxy_msg "git" true
+            else
+                delete_proxy_msg "git" false "... ... There is no proxy config defined for git."
+            fi
+        else
+            if command -v git > /dev/null ; then
+                # git config --global http.proxy ${URL}
+                printf "... Set proxy config for git: ${BGreen}OK${Color_Off}\n"
+            fi
+        fi
     else
-        # git config --global http.proxy ${URL}
-        printf "... Set proxy config for git: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}git${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -295,21 +324,25 @@ fi
 # WGET SETTINGS
 ######################
 if [[ -n $wget && $wget == true ]]; then
-    if [[ $delete == true ]]; then
-        printf "... Delete proxy config for wget: "
-        if [[ -s ~/.wgetrc ]]; then 
-            # sed -i '/proxy/d' ~/.wget
-            printf "${BGreen}OK${Color_Off}\n"
+    if command -v wget > /dev/null ; then
+        if [[ $delete == true ]]; then
+            printf "... Delete proxy config for wget: "
+            if [[ -s ~/.wgetrc ]]; then 
+                # sed -i '/proxy/d' ~/.wget
+                printf "${BGreen}OK${Color_Off}\n"
+            else
+                printf "${BRed}FAIL${Color_Off}\n"
+                file_error_msg '~/.wgetrc'
+            fi
         else
-            printf "${BRed}FAIL${Color_Off}\n"
-            file_error '~/.wgetrc'
+            # echo "https_proxy = ${URL}/" > ~/.wgetrc
+            # echo "http_proxy = ${URL}/" >> ~/.wgetrc
+            # echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
+            # echo "use_proxy = on" >> ~/.wgetrc
+            printf "... Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
         fi
     else
-        # echo "https_proxy = ${URL}/" > ~/.wgetrc
-        # echo "http_proxy = ${URL}/" >> ~/.wgetrc
-        # echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
-        # echo "use_proxy = on" >> ~/.wgetrc
-        printf "... Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}wget${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -317,19 +350,23 @@ fi
 # CURL SETTINGS
 ######################
 if [[ -n $curl && $curl == true ]]; then
-    if [[ $delete == true ]]; then
-        printf "... Delete proxy config for curl: "
+    if command -v curl > /dev/null ; then
+        if [[ $delete == true ]]; then
+            printf "... Delete proxy config for curl: "
 
-        if [[ -s ~/.curlrc ]]; then
-            # sed -i '/proxy/d' ~/.curlrc
-            printf "${BGreen}OK${Color_Off}\n"
+            if [[ -s ~/.curlrc ]]; then
+                # sed -i '/proxy/d' ~/.curlrc
+                printf "${BGreen}OK${Color_Off}\n"
+            else
+                printf "${BRed}FAIL${Color_Off}\n"
+                file_error_msg '~/.curlrc'
+            fi
         else
-            printf "${BRed}FAIL${Color_Off}\n"
-            file_error '~/.curlrc'
+            # echo "proxy=${URL}" > ~/.curlrc
+            printf "... Set proxy config for curl: ${BGreen}OK${Color_Off}\n"
         fi
     else
-        # echo "proxy=${URL}" > ~/.curlrc
-        printf "... Set proxy config for curl: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}curl${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -337,32 +374,36 @@ fi
 # COMPOSER SETTINGS
 ######################
 if [[ -n $composer && $composer == true ]]; then
-    if [[ $delete == true ]]; then
-        if [[ -z $environment ]]; then
-            # unset http_proxy
-            # unset HTTP_PROXY
-            # unset https_proxy
-            # unset HTTPS_PROXY
-            # unset HTTP_PROXY_REQUEST_FULLURI
-            # unset HTTPS_PROXY_REQUEST_FULLURI
-            # unset no_proxy
-            # unset NO_PROXY
-            echo
+    if command -v composer > /dev/null ; then
+        if [[ $delete == true ]]; then
+            if [[ -z $environment ]]; then
+                # unset http_proxy
+                # unset HTTP_PROXY
+                # unset https_proxy
+                # unset HTTPS_PROXY
+                # unset HTTP_PROXY_REQUEST_FULLURI
+                # unset HTTPS_PROXY_REQUEST_FULLURI
+                # unset no_proxy
+                # unset NO_PROXY
+                echo
+            fi
+            printf "... Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
+        else
+            if [[ -z $environment ]]; then
+                # export http_proxy="${URL}"
+                # export HTTP_PROXY="${URL}"
+                # export https_proxy="${URL}"
+                # export HTTPS_PROXY="${URL}"
+                # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
+                # export HTTPS_PROXY_REQUEST_FULLURI=0 #
+                # export no_proxy="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+                # export NO_PROXY="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+                echo
+            fi
+            printf "... Set proxy config for composer: ${BGreen}OK${Color_Off}\n"
         fi
-        printf "... Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
     else
-        if [[ -z $environment ]]; then
-            # export http_proxy="${URL}"
-            # export HTTP_PROXY="${URL}"
-            # export https_proxy="${URL}"
-            # export HTTPS_PROXY="${URL}"
-            # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
-            # export HTTPS_PROXY_REQUEST_FULLURI=0 #
-            # export no_proxy="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-            # export NO_PROXY="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-            echo
-        fi
-        printf "... Set proxy config for composer: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}composer${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -370,22 +411,26 @@ fi
 # NPM SETTINGS
 ######################
 if [[ -n $npm && $npm == true ]]; then
-    if [[ $delete == true ]]; then
-        # npm config delete proxy http_proxy http-proxy https_proxy https-proxy registry strict-ssl
-        printf "... Delete proxy config for npm: ${BGreen}OK${Color_Off}\n"
+    if command -v npm > /dev/null ; then
+        if [[ $delete == true ]]; then
+            # npm config delete proxy http_proxy http-proxy https_proxy https-proxy registry strict-ssl
+            printf "... Delete proxy config for npm: ${BGreen}OK${Color_Off}\n"
+        else
+            # npm config set registry http://registry.npmjs.org/
+            # npm config set proxy "${URL}"
+            # npm config set https-proxy "${URL}"
+            # npm config set strict-ssl false
+            # echo "registry=http://registry.npmjs.org/" > ~/.npmrc
+            # echo "proxy=${URL}" >> ~/.npmrc
+            # echo "strict-ssl=false" >> ~/.npmrc
+            # echo "http-proxy=${URL}" >> ~/.npmrc
+            # echo "http_proxy=${URL}" >> ~/.npmrc
+            # echo "https_proxy=${URL}" >> ~/.npmrc
+            # echo "https-proxy=${URL}" >> ~/.npmrc
+            printf "... Set proxy for npm: ${BGreen}OK${Color_Off}\n"
+        fi
     else
-        # npm config set registry http://registry.npmjs.org/
-        # npm config set proxy "${URL}"
-        # npm config set https-proxy "${URL}"
-        # npm config set strict-ssl false
-        # echo "registry=http://registry.npmjs.org/" > ~/.npmrc
-        # echo "proxy=${URL}" >> ~/.npmrc
-        # echo "strict-ssl=false" >> ~/.npmrc
-        # echo "http-proxy=${URL}" >> ~/.npmrc
-        # echo "http_proxy=${URL}" >> ~/.npmrc
-        # echo "https_proxy=${URL}" >> ~/.npmrc
-        # echo "https-proxy=${URL}" >> ~/.npmrc
-        printf "... Set proxy for npm: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}npm${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -393,16 +438,20 @@ fi
 # YARN SETTINGS
 ######################
 if [[ -n $yarn && $yarn == true ]]; then
-    if [[ $delete == true ]]; then
-        # yarn config delete proxy > /dev/null
-        # yarn config delete https-proxy > /dev/null
-        # yarn config delete strict-ssl > /dev/null
-        printf "... Delete proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+    if command -v yarn > /dev/null ; then
+        if [[ $delete == true ]]; then
+            # yarn config delete proxy > /dev/null
+            # yarn config delete https-proxy > /dev/null
+            # yarn config delete strict-ssl > /dev/null
+            printf "... Delete proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+        else
+            # yarn config set proxy ${URL} > /dev/null
+            # yarn config set https-proxy ${URL} > /dev/null
+            # yarn config set strict-ssl false > /dev/null
+            printf "... Set proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+        fi
     else
-        # yarn config set proxy ${URL} > /dev/null
-        # yarn config set https-proxy ${URL} > /dev/null
-        # yarn config set strict-ssl false > /dev/null
-        printf "... Set proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}yarn${Color_Off} is not installed in your system."
     fi
 fi
 
@@ -410,20 +459,24 @@ fi
 # SYMFONY SETTINGS
 ######################
 if [[ -n $symfony && $symfony == true ]]; then
-    if [[ $delete == true ]]; then
-        if [[ -z $environment ]]; then
-            # unset http_proxy
-            # unset https_proxy
-            echo
+    if command -v symfony > /dev/null ; then
+        if [[ $delete == true ]]; then
+            if [[ -z $environment ]]; then
+                # unset http_proxy
+                # unset https_proxy
+                echo
+            fi
+            printf "... Delete proxy config for symfony: ${BGreen}OK${Color_Off}\n"
+        else
+            if [[ -z $environment ]]; then
+                # export http_proxy="${URL}"
+                # export https_proxy="${URL}"
+                echo
+            fi
+            printf "... Set proxy config for symfony: ${BGreen}OK${Color_Off}\n"
         fi
-        printf "... Delete proxy config for symfony: ${BGreen}OK${Color_Off}\n"
     else
-        if [[ -z $environment ]]; then
-            # export http_proxy="${URL}"
-            # export https_proxy="${URL}"
-            echo
-        fi
-        printf "... Set proxy config for symfony: ${BGreen}OK${Color_Off}\n"
+        printf "The command ${BRed}symfony${Color_Off} is not installed in your system."
     fi
 fi
 

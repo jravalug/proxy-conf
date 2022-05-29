@@ -76,14 +76,13 @@ On_IWhite='\033[0;107m'   # White
 help_menu() {
   echo -e "Usage:
 
-  ${Green}${0##*/}${Color_Off} ${Cyan}[-u=USERNAME -p=PASSWORD -s=IP:PORT] [FLAGS] | [-d] [FLAGS] ${Color_Off}
+  ${Green}${0##*/}${Color_Off} ${Cyan}[-u=USERNAME -s=IP:PORT] [FLAGS] | [-d] [FLAGS] ${Color_Off}
 
   If do not expecify an environmet flag, the proxy config will set for all of then.
 
 Options:
 
   -u, --username=WORD.WORD  username for proxy.
-  -p, --password=PASSWORD   user password for proxy.
   -s, --server=IP:PORT      proxy url. 
 
 Flags:
@@ -119,9 +118,10 @@ set_proxy_msg () {
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "allreadyexist") printf ".... Allready exist a proxy config for ${Green}${1}${Color_Off}:\n";
+            "yet_exist") printf ".... Allready exist a proxy config for ${Green}${1}${Color_Off}:\n";
                          printf ".... ${Red}${4}${Color_Off}\n";
                          use_force_msg;;
+            "no_create_file") printf ".... Canceled by user.\n";;
         esac
     fi
 }
@@ -133,7 +133,8 @@ delete_proxy_msg () {
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "misconfig") printf ".... There is no proxy config defined for ${Green}${1}${Color_Off}.";;
+            "no_config") printf ".... There is no proxy config defined for ${Green}${1}${Color_Off}.\n";;
+            "no_file") printf "... The file ${BRed}${4}${Color_Off} not exist or is empty.\n";;
         esac
 
     fi
@@ -166,6 +167,18 @@ set_git_proxy () {
     set_proxy_msg "git" true
 }
 
+set_wget_proxy () {
+    echo "https_proxy = ${URL}/" > ~/.wgetrc
+    echo "http_proxy = ${URL}/" >> ~/.wgetrc
+    echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
+    echo "use_proxy = on" >> ~/.wgetrc
+    set_proxy_msg 'wget' true
+}
+
+delete_wget_proxy () {
+    sed -i '/proxy/d' ~/.wgetrc
+}
+
 #######################################################################################################
 #######################################################################################################
 #######################################################################################################
@@ -185,7 +198,6 @@ while [[ $pointer -le $# ]]; do
       case $param in
          # paramter-flags with arguments
          -u=*|--username=*) username="${param#*=}";;
-         -p=*|--password=*) password="${param#*=}";;
          -s=*|--proxy=*) proxy="${param#*=}";;
          
          -h|--help) help_menu 
@@ -241,7 +253,7 @@ fi
 
 
 if [[ -n $delete ]]; then
-    if [[ -n $username || -n $password || -n $proxy ]]; then
+    if [[ -n $username || -n $proxy ]]; then
         printf "If ${Red}[-d]${Color_Off} flag is active, then options ${Red}[-u -p -s]${Color_Off} can't be used.\n"
         view_help_msg
         exit 1
@@ -260,13 +272,10 @@ else
             printf "The username ${Red}${username}${Color_Off} is not allow.\n"
             view_help_msg
             exit 1
+        else
+            read -s -p "Insert the password for this user: " password
+            printf "\n"
         fi
-    fi
-
-    if [[ -z $password ]]; then
-        printf "The option ${Red}[-p=PASSWORD]${Color_Off} is necesary.\n"
-        view_help_msg
-        exit 1
     fi
 
     if [[ -z $proxy ]]; then
@@ -336,7 +345,7 @@ if [[ -n $apt && $apt == true ]]; then
             delete_apt_proxy
             delete_proxy_msg "apt" true
         else
-            delete_proxy_msg "apt" false "misconfig"
+            delete_proxy_msg "apt" false "no_config"
         fi
     else
         if grep 'Proxy' /etc/apt/apt.conf > /dev/null ; then 
@@ -345,7 +354,7 @@ if [[ -n $apt && $apt == true ]]; then
                 set_apt_proxy
             else
                 apt_aux=$(grep 'Proxy' /etc/apt/apt.conf)
-                set_proxy_msg "apt" false "allreadyexist" "${apt_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                set_proxy_msg "apt" false "yet_exist" "${apt_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
             fi
         else 
             set_apt_proxy
@@ -362,14 +371,14 @@ if [[ -n $git && $git == true ]]; then
             if git config --global --unset http.proxy > /dev/null; then
                 delete_proxy_msg "git" true
             else
-                delete_proxy_msg "git" false "misconfig"
+                delete_proxy_msg "git" false "no_config"
             fi
         else
             if git config --global --list | grep http.proxy > /dev/null ; then
                 if [[ $force == true ]]; then
                     set_git_proxy
                 else
-                    set_proxy_msg "git" false "allreadyexist" $(git config --global --list | grep http.proxy)
+                    set_proxy_msg "git" false "yet_exist" $(git config --global --list | grep http.proxy)
                 fi
             else
                 set_git_proxy
@@ -386,20 +395,37 @@ fi
 if [[ -n $wget && $wget == true ]]; then
     if command -v wget > /dev/null ; then
         if [[ $delete == true ]]; then
-            printf "... Delete proxy config for wget: "
-            if [[ -s ~/.wgetrc ]]; then 
-                # sed -i '/proxy/d' ~/.wget
-                printf "${BGreen}OK${Color_Off}\n"
+            if [[ -s ~/.wgetrc ]]; then
+                if grep 'proxy' ~/.wgetrc > /dev/null; then
+                    delete_wget_proxy
+                    delete_proxy_msg "wget" true
+                else
+                    delete_proxy_msg "wget" false "no_config"
+                fi
             else
-                printf "${BRed}FAIL${Color_Off}\n"
-                file_error_msg '~/.wgetrc'
+                delete_proxy_msg "wget" false "no_file" "~/.wgetrc" 
             fi
         else
-            # echo "https_proxy = ${URL}/" > ~/.wgetrc
-            # echo "http_proxy = ${URL}/" >> ~/.wgetrc
-            # echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
-            # echo "use_proxy = on" >> ~/.wgetrc
-            printf "\--> Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
+            if [[ -s ~/.wgetrc ]]; then
+                if grep 'proxy' ~/.wgetrc > /dev/null; then
+                    if [[ $force == true ]]; then
+                        delete_wget_proxy
+                        set_wget_proxy
+                    else
+                        apt_aux=$(grep 'proxy' ~/.wgetrc)
+                        set_proxy_msg "wget" false "yet_exist" "${apt_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                    fi
+                else
+                    set_wget_proxy
+                fi
+            else
+                printf "\n"
+                read -r -p "The file ~/.wgetrc do not exist, do you wish to create it? [y|n]: " yn
+                case $yn in
+                    [Yy]* ) set_wget_proxy;;
+                    [Nn]* ) set_proxy_msg "wget" false "no_create_file";;
+                esac
+            fi
         fi
     else
         printf "The command ${BRed}wget${Color_Off} is not installed in your system."

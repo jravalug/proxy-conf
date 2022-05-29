@@ -113,42 +113,38 @@ file_error_msg () {
 }
 
 set_proxy_msg () {
-    printf "... Set proxy config for $1: "
+    printf "\n\--> Set proxy config for ${Green}$1${Color_Off}: "
     if [[ $2 == true ]]; then
         printf "${BGreen}OK${Color_Off}\n"
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "allreadyexist") printf "... ... Allready existe a proxy config for apt:\n";;
-            "useforce") printf "${Color_Off}... ... If you want to override this config use ${Cyan}[-f]${Color_Off} flag.\n";;
+            "allreadyexist") printf ".... Allready exist a proxy config for ${Green}${1}${Color_Off}:\n";
+                         printf ".... ${Red}${4}${Color_Off}\n";
+                         use_force_msg;;
         esac
     fi
 }
 
 delete_proxy_msg () {
-    printf "... Delete proxy config for $1: "
+    printf "... Delete proxy config for ${Green}$1${Color_Off}: "
     if [[ $2 == true ]]; then
         printf "${BGreen}OK${Color_Off}\n"
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "misconfig") printf "... ... There is no proxy config defined for apt.";;
+            "misconfig") printf ".... There is no proxy config defined for ${Green}${1}${Color_Off}.";;
         esac
-    fi
-}
 
-command_exist () {
-    if ! command -v $i > /dev/null ; then
-        local command_exist_return="The command ${BRed}$1${Color_Off} is not installed in your system."
-        printf "$command_exist_return"
-    else
-        local command_exist_return=""
-        printf "$command_exist_return"
     fi
 }
 
 use_force_msg () {
-    printf "${Color_Off}... ... If you want to override this config use ${Cyan}[-f]${Color_Off} flag.\n"
+    printf ".... If you want to force override this config use ${Cyan}[-f]${Color_Off} flag.\n"
+}
+
+command_exist (){
+    printf "The command ${BRed}$1${Color_Off} is not installed in your system."
 }
 
 #######################################################################################################
@@ -158,9 +154,16 @@ use_force_msg () {
 set_apt_proxy () {
     printf "Acquire::http::Proxy \"${URL}\"\n" | sudo tee /etc/apt/apt.conf > /dev/null
     printf "Acquire::https::Proxy \"${URL}\"\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
+    set_proxy_msg "apt" true
 }
+
 delete_apt_proxy () {
     sudo sed -i '/Proxy/d' /etc/apt/apt.conf
+}
+
+set_git_proxy () {
+    git config --global http.proxy ${URL}
+    set_proxy_msg "git" true
 }
 
 #######################################################################################################
@@ -320,7 +323,7 @@ if [[ -n $environment && $environment == true ]]; then
         # export dns_proxy="${URL}"
         # export rsync_proxy="${URL}"
         # export all_proxy="${URL}"
-        printf "... Set proxy variables for environment: ${BGreen}OK${Color_Off}\n"
+        printf "... Set proxy variables for ${Green}environment${Color_Off}: ${BGreen}OK${Color_Off}\n"
     fi
 fi
 
@@ -329,27 +332,23 @@ fi
 ######################
 if [[ -n $apt && $apt == true ]]; then
     if [[ $delete == true ]]; then
-        if cat /etc/apt/apt.conf | grep Proxy > /dev/null ; then
+        if grep 'Proxy' /etc/apt/apt.conf > /dev/null ; then
             delete_apt_proxy
             delete_proxy_msg "apt" true
         else
             delete_proxy_msg "apt" false "misconfig"
         fi
     else
-        if cat /etc/apt/apt.conf | grep Proxy > /dev/null ; then 
+        if grep 'Proxy' /etc/apt/apt.conf > /dev/null ; then 
             if [[ $force == true ]]; then
                 delete_apt_proxy
                 set_apt_proxy
-                set_proxy_msg "apt" true
             else
-                set_proxy_msg "apt" false "allreadyexist"
-                printf "... ... ${BRed}"
-                cat /etc/apt/apt.conf | grep Proxy
-                use_force_msg           
+                apt_aux=$(grep 'Proxy' /etc/apt/apt.conf)
+                set_proxy_msg "apt" false "allreadyexist" "${apt_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
             fi
         else 
             set_apt_proxy
-            set_proxy_msg "apt" true
         fi
     fi
 fi
@@ -360,19 +359,24 @@ fi
 if [[ -n $git && $git == true ]]; then
     if command -v git > /dev/null ; then
         if [[ $delete == true ]]; then
-            if git config --global --unset attp.proxy > /dev/null; then
+            if git config --global --unset http.proxy > /dev/null; then
                 delete_proxy_msg "git" true
             else
-                delete_proxy_msg "git" false "... ... There is no proxy config defined for git."
+                delete_proxy_msg "git" false "misconfig"
             fi
         else
-            if command -v git > /dev/null ; then
-                # git config --global http.proxy ${URL}
-                printf "... Set proxy config for git: ${BGreen}OK${Color_Off}\n"
+            if git config --global --list | grep http.proxy > /dev/null ; then
+                if [[ $force == true ]]; then
+                    set_git_proxy
+                else
+                    set_proxy_msg "git" false "allreadyexist" $(git config --global --list | grep http.proxy)
+                fi
+            else
+                set_git_proxy
             fi
         fi
     else
-        printf "The command ${BRed}git${Color_Off} is not installed in your system."
+        command_exist "git"
     fi
 fi
 
@@ -395,7 +399,7 @@ if [[ -n $wget && $wget == true ]]; then
             # echo "http_proxy = ${URL}/" >> ~/.wgetrc
             # echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
             # echo "use_proxy = on" >> ~/.wgetrc
-            printf "... Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
+            printf "\--> Set proxy config for wget: ${BGreen}OK${Color_Off}\n"
         fi
     else
         printf "The command ${BRed}wget${Color_Off} is not installed in your system."

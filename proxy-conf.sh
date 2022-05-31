@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 # Reset
 Color_Off='\033[0m'       # Text Reset
@@ -91,7 +91,9 @@ Flags:
   -d, --delete        delete proxy configuration for all environment.
   -f, --force         force the proxy config.
 
-  -e, --environment   Export proxy variables for environment
+  -e, --environment   Set proxy variables for /etc/environment
+  -b, --bash          Export proxy env variables for bash
+  -z, --zsh           Export proxy env variables for zsh
       --apt           Config proxy for apt
       --git           Config proxy for git
       --wget          Config proxy for wget
@@ -118,10 +120,14 @@ set_proxy_msg () {
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "yet_exist") printf ".... Allready exist a proxy config for ${Green}${1}${Color_Off}:\n";
-                         printf ".... ${Red}${4}${Color_Off}\n";
-                         use_force_msg;;
-            "no_create_file") printf ".... Canceled by user.\n";;
+            "yet_exist") 
+                printf ".... Allready exist a proxy config for ${Green}${1}${Color_Off}:\n";
+                printf ".... ${Red}${4}${Color_Off}\n";
+                use_force_msg
+                ;;
+            "no_create_file") 
+                printf ".... Canceled by user.\n"
+                ;;
         esac
     fi
 }
@@ -133,8 +139,12 @@ delete_proxy_msg () {
     else
         printf "${BRed}FAIL${Color_Off}\n"
         case $3 in
-            "no_config") printf ".... There is no proxy config defined for ${Green}${1}${Color_Off}.\n";;
-            "no_file") printf "... The file ${BRed}${4}${Color_Off} not exist or is empty.\n";;
+            "no_config") 
+                printf ".... There is no proxy config defined for ${Green}${1}${Color_Off}.\n"
+                ;;
+            "no_file") 
+                printf "... The file ${BRed}${4}${Color_Off} not exist or is empty.\n"
+                ;;
         esac
 
     fi
@@ -148,18 +158,128 @@ command_exist (){
     printf "The command ${BRed}$1${Color_Off} is not installed in your system."
 }
 
+handle_zsh () {
+    if [[ $1 == "set" ]]; then
+        echo "#! /usr/bin/env zsh
+
+[[ ! -f ~/.zshrc ]] || source ~/.zshrc
+" > ~/.tmp-zshsource.zsh
+
+        chmod 0700 ~/.tmp-zshsource.zsh
+        ~/.tmp-zshsource.zsh
+        rm ~/.tmp-zshsource.zsh
+    fi
+
+    if [[ $1 == "delete" ]]; then
+        echo "#! /usr/bin/env zsh
+
+[[ ! -f ~/.zshrc ]] || source ~/.zshrc
+" > ~/.tmp-zshsource.zsh
+
+        chmod 0700 ~/.tmp-zshsource.zsh
+        ~/.tmp-zshsource.zsh
+        rm ~/.tmp-zshsource.zsh
+    fi
+
+}
+
 #######################################################################################################
 #######################################################################################################
 #######################################################################################################
 
+set_environmet_proxy () {
+    printf "http_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "HTTP_PROXY=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "https_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "HTTPS_PROXY=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "no_proxy=\"127.0.0.10/8, localhost, 10.20.0.0/15, 172.16.0.0/12, 192.168.0.0/16\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "NO_PROXY=\"127.0.0.10/8, localhost, 10.20.0.0/15, 172.16.0.0/12, 192.168.0.0/16\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "HTTP_PROXY_REQUEST_FULLURI=0\n" | sudo tee -a /etc/environment > /dev/null
+    printf "HTTPS_PROXY_REQUEST_FULLURI=0\n" | sudo tee -a /etc/environment > /dev/null
+    printf "ftp_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "dns_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "rsync_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+    printf "all_proxy=\"${URL}\"\n" | sudo tee -a /etc/environment > /dev/null
+
+    source /etc/environment
+
+    set_proxy_msg "${1}" true
+}
+
+delete_environmet_proxy () {
+    sudo sed -i '/http_proxy/d' /etc/environment
+    sudo sed -i '/HTTP_PROXY/d' /etc/environment
+    sudo sed -i '/https_proxy/d' /etc/environment
+    sudo sed -i '/HTTPS_PROXY/d' /etc/environment
+    sudo sed -i '/no_proxy/d' /etc/environment
+    sudo sed -i '/NO_PROXY/d' /etc/environment
+    sudo sed -i '/HTTP_PROXY_REQUEST_FULLURI/d' /etc/environment
+    sudo sed -i '/HTTPS_PROXY_REQUEST_FULLURI/d' /etc/environment
+    sudo sed -i '/ftp_proxy/d' /etc/environment
+    sudo sed -i '/dns_proxy/d' /etc/environment
+    sudo sed -i '/rsync_proxy/d' /etc/environment
+    sudo sed -i '/all_proxy/d' /etc/environment
+
+    source /etc/environment
+
+    delete_proxy_msg "${1}" true
+}
+
+set_shell_proxy () {
+    printf "export http_proxy=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export HTTP_PROXY=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export https_proxy=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export HTTPS_PROXY=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export no_proxy=\"127.0.0.10/8,localhost,10.20.0.0/15,.reduc.edu.cu,172.16.0.0/12,192.168.0.0/16\"\n" >> ~/.${1}rc
+    printf "export NO_PROXY=\"127.0.0.10/8,localhost,10.20.0.0/15,.reduc.edu.cu,172.16.0.0/12,192.168.0.0/16\"\n" >> ~/.${1}rc
+    printf "export HTTP_PROXY_REQUEST_FULLURI=0\n" >> ~/.${1}rc
+    printf "export HTTPS_PROXY_REQUEST_FULLURI=0\n" >> ~/.${1}rc
+    printf "export ftp_proxy=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export dns_proxy=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export rsync_proxy=\"${URL}\"\n" >> ~/.${1}rc
+    printf "export all_proxy=\"${URL}\"\n" >> ~/.${1}rc
+
+    if [[ $1 == "zsh" ]]; then
+        handle_zsh "set"
+    else
+        source ~/.${1}rc
+    fi
+
+    set_proxy_msg "${1}" true
+}
+
+delete_shell_proxy () {
+    sed -i '/http_proxy/d' ~/.${1}rc
+    sed -i '/HTTP_PROXY/d' ~/.${1}rc
+    sed -i '/https_proxy/d' ~/.${1}rc
+    sed -i '/HTTPS_PROXY/d' ~/.${1}rc
+    sed -i '/no_proxy/d' ~/.${1}rc
+    sed -i '/NO_PROXY/d' ~/.${1}rc
+    sed -i '/HTTP_PROXY_REQUEST_FULLURI/d' ~/.${1}rc
+    sed -i '/HTTPS_PROXY_REQUEST_FULLURI/d' ~/.${1}rc
+    sed -i '/ftp_proxy/d' ~/.${1}rc
+    sed -i '/dns_proxy/d' ~/.${1}rc
+    sed -i '/rsync_proxy/d' ~/.${1}rc
+    sed -i '/all_proxy/d' ~/.${1}rc
+
+    if [[ $1 == "zsh" ]]; then
+        handle_zsh "delete"
+    else
+        source ~/.${1}rc
+    fi
+
+    delete_proxy_msg "${1}" true
+}
+
 set_apt_proxy () {
-    printf "Acquire::http::Proxy \"${URL}\"\n" | sudo tee /etc/apt/apt.conf > /dev/null
-    printf "Acquire::https::Proxy \"${URL}\"\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
+    printf "Acquire::http::Proxy \"${URL}\";\n" | sudo tee /etc/apt/apt.conf > /dev/null
+    printf "Acquire::https::Proxy \"${URL}\";\n" | sudo tee -a /etc/apt/apt.conf > /dev/null
     set_proxy_msg "apt" true
 }
 
 delete_apt_proxy () {
-    sudo sed -i '/Proxy/d' /etc/apt/apt.conf
+    sudo sed -i '/Acquire::http::Proxy/d' /etc/apt/apt.conf
+    sudo sed -i '/Acquire::https::Proxy/d' /etc/apt/apt.conf
 }
 
 set_git_proxy () {
@@ -168,10 +288,10 @@ set_git_proxy () {
 }
 
 set_wget_proxy () {
-    echo "https_proxy = ${URL}/" > ~/.wgetrc
-    echo "http_proxy = ${URL}/" >> ~/.wgetrc
-    echo "ftp_proxy = ${URL}/" >> ~/.wgetrc
-    echo "use_proxy = on" >> ~/.wgetrc
+    printf "https_proxy=${URL}/\n" >> ~/.wgetrc
+    printf "http_proxy=${URL}/\n" >> ~/.wgetrc
+    printf "ftp_proxy=${URL}/\n" >> ~/.wgetrc
+    printf "use_proxy=on\n" >> ~/.wgetrc
     set_proxy_msg 'wget' true
 }
 
@@ -179,11 +299,66 @@ delete_wget_proxy () {
     sed -i '/proxy/d' ~/.wgetrc
 }
 
+set_curl_proxy () {
+    printf "proxy=${URL}/\n" >> ~/.curlrc
+    set_proxy_msg 'curl' true
+}
+
+
+delete_curl_proxy () {
+    sed -i '/proxy/d' ~/.curlrc
+}
+
+set_npm_proxy () {
+    npm config set registry http://registry.npmjs.org/
+    npm config set proxy "${URL}"
+    npm config set http-proxy "${URL}"
+    npm config set http_proxy "${URL}"
+    npm config set https-proxy "${URL}"
+    npm config set https_proxy "${URL}"
+    npm config set strict-ssl false
+    # echo "registry=http://registry.npmjs.org/" > ~/.npmrc
+    # echo "proxy=${URL}" >> ~/.npmrc
+    # echo "strict-ssl=false" >> ~/.npmrc
+    # echo "http-proxy=${URL}" >> ~/.npmrc
+    # echo "http_proxy=${URL}" >> ~/.npmrc
+    # echo "https_proxy=${URL}" >> ~/.npmrc
+    # echo "https-proxy=${URL}" >> ~/.npmrc
+    set_proxy_msg 'npm' true
+}
+
+
+delete_npm_proxy () {
+    npm config delete proxy
+    npm config delete http_proxy
+    npm config delete http-proxy
+    npm config delete https_proxy
+    npm config delete https-proxy
+    npm config delete registry
+    npm config delete strict-ssl
+    delete_proxy_msg "npm" true
+}
+
+set_yarn_proxy () {
+    yarn config delete proxy > /dev/null
+    yarn config delete https-proxy > /dev/null
+    yarn config delete strict-ssl > /dev/null
+    set_proxy_msg 'npm' true
+}
+
+
+delete_yarn_proxy () {
+    yarn config set proxy ${URL} > /dev/null
+    yarn config set https-proxy ${URL} > /dev/null
+    yarn config set strict-ssl false > /dev/null
+    delete_proxy_msg "npm" true
+}
+
 #######################################################################################################
 #######################################################################################################
 #######################################################################################################
 
-
+# defaul for all env
 all_env=true
 
 # process flags
@@ -208,14 +383,16 @@ while [[ $pointer -le $# ]]; do
          # binary flags
         #  -a|--all-env) all_env=true;;
          -e|--environment) environment=true; all_env=false;;
+         -b|--bash) bash=true; all_env=false;;
+         -z|--zsh) zsh=true; all_env=false;;
             --apt) apt=true; all_env=false;;
             --git) git=true; all_env=false;;
             --wget) wget=true; all_env=false;;
             --curl) curl=true; all_env=false;;
-            --composer) composer=true; all_env=false;;
+            # --composer) composer=true; all_env=false;;
             --npm) npm=true; all_env=false;;
             --yarn) yarn=true; all_env=false;;
-            --symfony) symfony=true; all_env=false;;
+            # --symfony) symfony=true; all_env=false;;
 
          -*) printf "Unknow or bad argument ${Red}${param}.${Color_Off}\n"
              view_help_msg
@@ -233,25 +410,35 @@ done
 #     all_env=false
 # fi
 
+######################
+# Controll no empty params
+######################
 if [[ $param_count == 0 ]]; then
     printf "Bad usage for ${Green}${0##*/}${Color_Off}\n"
     view_help_msg
     exit 1
 fi
 
+######################
+# Set true fo all Env
+######################
 if [[ $all_env == true ]]; then
     environment=true
+    bash=true
+    zsh=true
     apt=true
     curl=true
     wget=true
     git=true
     npm=true
     yarn=true
-    composer=true
-    symfony=true
+    # composer=true
+    # symfony=true
 fi
 
-
+######################
+# Control delete use
+######################
 if [[ -n $delete ]]; then
     if [[ -n $username || -n $proxy ]]; then
         printf "If ${Red}[-d]${Color_Off} flag is active, then options ${Red}[-u -p -s]${Color_Off} can't be used.\n"
@@ -262,6 +449,9 @@ if [[ -n $delete ]]; then
     if [[ $delete == true && $all_env == true ]]; then
         printf "Delete proxy config for all environments:\n"
     fi
+######################
+# Control set use
+######################
 else
     if [[ -z $username ]]; then
         printf "The option ${Red}[-u=USERNAME]${Color_Off} is necesary.\n"
@@ -306,33 +496,73 @@ fi
 ######################
 if [[ -n $environment && $environment == true ]]; then
     if [[ $delete == true ]]; then
-        # unset http_proxy
-        # unset HTTP_PROXY
-        # unset https_proxy
-        # unset HTTPS_PROXY
-        # unset HTTP_PROXY_REQUEST_FULLURI
-        # unset HTTPS_PROXY_REQUEST_FULLURI
-        # unset no_proxy
-        # unset NO_PROXY
-        # unset ftp_proxy
-        # unset dns_proxy
-        # unset rsync_proxy
-        # unset all_proxy
-        printf "... Delete proxy variables from environment: ${BGreen}OK${Color_Off}\n"
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' /etc/environment > /dev/null; then
+            delete_environmet_proxy "environment"
+        else
+            delete_proxy_msg "environment" false "no_config"
+        fi
     else
-        # export http_proxy="${URL}"
-        # export HTTP_PROXY="${URL}"
-        # export https_proxy="${URL}"
-        # export HTTPS_PROXY="${URL}"
-        # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
-        # export HTTPS_PROXY_REQUEST_FULLURI=0
-        # export no_proxy="127.0.0.10/8, localhost, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-        # export NO_PROXY="127.0.0.10/8, localhost, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-        # export ftp_proxy="${URL}"
-        # export dns_proxy="${URL}"
-        # export rsync_proxy="${URL}"
-        # export all_proxy="${URL}"
-        printf "... Set proxy variables for ${Green}environment${Color_Off}: ${BGreen}OK${Color_Off}\n"
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' /etc/environment > /dev/null; then
+            if [[ $force == true ]]; then
+                (delete_environmet_proxy "environment") > /dev/null 
+                set_environmet_proxy "environment"
+            else
+                environment_aux=$(grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' /etc/environment)
+                set_proxy_msg "environment" false "yet_exist" "${environment_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+            fi
+        else
+            set_environmet_proxy "environment"
+        fi
+    fi
+fi
+
+######################
+# Bash Variables
+######################
+if [[ -n $bash && $bash == true ]]; then
+    if [[ $delete == true ]]; then
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.bashrc > /dev/null; then
+            delete_shell_proxy "bash"
+        else
+            delete_proxy_msg "bash" false "no_config"
+        fi
+    else
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.bashrc > /dev/null; then
+            if [[ $force == true ]]; then
+                (delete_shell_proxy "bash") > /dev/null
+                set_shell_proxy "bash"
+            else
+                bash_aux=$(grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.bashrc)
+                set_proxy_msg "bash" false "yet_exist" "${bash_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+            fi
+        else
+            set_shell_proxy "bash"
+        fi
+    fi
+fi
+
+######################
+# Zsh Variables
+######################
+if [[ -n $zsh && $zsh == true ]]; then
+    if [[ $delete == true ]]; then
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.zshrc > /dev/null; then
+            delete_shell_proxy "zsh"
+        else
+            delete_proxy_msg "zsh" false "no_config"
+        fi
+    else
+        if grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.zshrc > /dev/null; then
+            if [[ $force == true ]]; then
+                (delete_shell_proxy "zsh") > /dev/null
+                set_shell_proxy "zsh"
+            else
+                zsh_aux=$(grep -P 'http_proxy|HTTP_PROXY|https_proxy|HTTPS_PROXY|HTTP_PROXY_REQUEST_FULLURI|HTTPS_PROXY_REQUEST_FULLURI|no_proxy|NO_PROXY|ftp_proxy|dns_proxy|rsync_proxy|all_proxy' ~/.zshrc)
+                set_proxy_msg "zsh" false "yet_exist" "${zsh_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+            fi
+        else
+            set_shell_proxy "zsh"
+        fi
     fi
 fi
 
@@ -412,8 +642,8 @@ if [[ -n $wget && $wget == true ]]; then
                         delete_wget_proxy
                         set_wget_proxy
                     else
-                        apt_aux=$(grep 'proxy' ~/.wgetrc)
-                        set_proxy_msg "wget" false "yet_exist" "${apt_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                        wget_aux=$(grep 'proxy' ~/.wgetrc)
+                        set_proxy_msg "wget" false "yet_exist" "${wget_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
                     fi
                 else
                     set_wget_proxy
@@ -428,7 +658,7 @@ if [[ -n $wget && $wget == true ]]; then
             fi
         fi
     else
-        printf "The command ${BRed}wget${Color_Off} is not installed in your system."
+        command_exist "wget"
     fi
 fi
 
@@ -438,85 +668,105 @@ fi
 if [[ -n $curl && $curl == true ]]; then
     if command -v curl > /dev/null ; then
         if [[ $delete == true ]]; then
-            printf "... Delete proxy config for curl: "
-
             if [[ -s ~/.curlrc ]]; then
-                # sed -i '/proxy/d' ~/.curlrc
-                printf "${BGreen}OK${Color_Off}\n"
+                if grep 'proxy' ~/.curlrc > /dev/null; then
+                    delete_curl_proxy
+                    delete_proxy_msg "curl" true
+                else
+                    delete_proxy_msg "curl" false "no_config"
+                fi
             else
-                printf "${BRed}FAIL${Color_Off}\n"
-                file_error_msg '~/.curlrc'
+                delete_proxy_msg "curl" false "no_file" "~/.curlrc" 
             fi
         else
-            # echo "proxy=${URL}" > ~/.curlrc
-            printf "... Set proxy config for curl: ${BGreen}OK${Color_Off}\n"
+            if [[ -s ~/.curlrc ]]; then
+                if grep 'proxy' ~/.curlrc > /dev/null; then
+                    if [[ $force == true ]]; then
+                        delete_curl_proxy
+                        set_curl_proxy
+                    else
+                        curl_aux=$(grep 'proxy' ~/.curlrc)
+                        set_proxy_msg "curl" false "yet_exist" "${curl_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                    fi
+                else
+                    set_curl_proxy
+                fi
+            else
+                printf "\n"
+                read -r -p "The file ~/.curlrc do not exist, do you wish to create it? [y|n]: " yn
+                case $yn in
+                    [Yy]* ) set_curl_proxy;;
+                    [Nn]* ) set_proxy_msg "curl" false "no_create_file";;
+                esac
+            fi
         fi
     else
-        printf "The command ${BRed}curl${Color_Off} is not installed in your system."
+        command_exist "curl"
     fi
 fi
 
 ######################
-# COMPOSER SETTINGS
+# COMPOSER SETTINGS     /TODO
 ######################
-if [[ -n $composer && $composer == true ]]; then
-    if command -v composer > /dev/null ; then
-        if [[ $delete == true ]]; then
-            if [[ -z $environment ]]; then
-                # unset http_proxy
-                # unset HTTP_PROXY
-                # unset https_proxy
-                # unset HTTPS_PROXY
-                # unset HTTP_PROXY_REQUEST_FULLURI
-                # unset HTTPS_PROXY_REQUEST_FULLURI
-                # unset no_proxy
-                # unset NO_PROXY
-                echo
-            fi
-            printf "... Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
-        else
-            if [[ -z $environment ]]; then
-                # export http_proxy="${URL}"
-                # export HTTP_PROXY="${URL}"
-                # export https_proxy="${URL}"
-                # export HTTPS_PROXY="${URL}"
-                # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
-                # export HTTPS_PROXY_REQUEST_FULLURI=0 #
-                # export no_proxy="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-                # export NO_PROXY="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
-                echo
-            fi
-            printf "... Set proxy config for composer: ${BGreen}OK${Color_Off}\n"
-        fi
-    else
-        printf "The command ${BRed}composer${Color_Off} is not installed in your system."
-    fi
-fi
+# if [[ -n $composer && $composer == true ]]; then
+#     if command -v composer > /dev/null ; then
+#         if [[ $delete == true ]]; then
+#             if [[ -z $environment ]]; then
+#                 # unset http_proxy
+#                 # unset HTTP_PROXY
+#                 # unset https_proxy
+#                 # unset HTTPS_PROXY
+#                 # unset HTTP_PROXY_REQUEST_FULLURI
+#                 # unset HTTPS_PROXY_REQUEST_FULLURI
+#                 # unset no_proxy
+#                 # unset NO_PROXY
+#                 echo
+#             fi
+#             printf "... Delete proxy config for composer: ${BGreen}OK${Color_Off}\n"
+#         else
+#             if [[ -z $environment ]]; then
+#                 # export http_proxy="${URL}"
+#                 # export HTTP_PROXY="${URL}"
+#                 # export https_proxy="${URL}"
+#                 # export HTTPS_PROXY="${URL}"
+#                 # export HTTP_PROXY_REQUEST_FULLURI=0 # or false
+#                 # export HTTPS_PROXY_REQUEST_FULLURI=0 #
+#                 # export no_proxy="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+#                 # export NO_PROXY="127.0.0.10/8, localhost, 10.20.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+#                 echo
+#             fi
+#             printf "... Set proxy config for composer: ${BGreen}OK${Color_Off}\n"
+#         fi
+#     else
+#         command_exist "composer"
+#     fi
+# fi
 
 ######################
 # NPM SETTINGS
 ######################
 if [[ -n $npm && $npm == true ]]; then
     if command -v npm > /dev/null ; then
+        npm_aux=$(npm config list | grep -P '^registry =|proxy =|http-proxy =|http_proxy =|https-proxy =|https_proxy =|strict-ssl =')
         if [[ $delete == true ]]; then
-            # npm config delete proxy http_proxy http-proxy https_proxy https-proxy registry strict-ssl
-            printf "... Delete proxy config for npm: ${BGreen}OK${Color_Off}\n"
+            if [[ -n $npm_aux ]] ; then
+                delete_npm_proxy
+            else
+                delete_proxy_msg "npm" false "no_config"
+            fi
         else
-            # npm config set registry http://registry.npmjs.org/
-            # npm config set proxy "${URL}"
-            # npm config set https-proxy "${URL}"
-            # npm config set strict-ssl false
-            # echo "registry=http://registry.npmjs.org/" > ~/.npmrc
-            # echo "proxy=${URL}" >> ~/.npmrc
-            # echo "strict-ssl=false" >> ~/.npmrc
-            # echo "http-proxy=${URL}" >> ~/.npmrc
-            # echo "http_proxy=${URL}" >> ~/.npmrc
-            # echo "https_proxy=${URL}" >> ~/.npmrc
-            # echo "https-proxy=${URL}" >> ~/.npmrc
-            printf "... Set proxy for npm: ${BGreen}OK${Color_Off}\n"
+            if [[ -n $npm_aux ]] ; then
+                if [[ $force == true ]]; then
+                    set_npm_proxy
+                else
+                    set_proxy_msg "npm" false "yet_exist" "${npm_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                fi
+            else
+                set_npm_proxy
+            fi
         fi
     else
-        printf "The command ${BRed}npm${Color_Off} is not installed in your system."
+        command_exist "npm"
     fi
 fi
 
@@ -525,46 +775,54 @@ fi
 ######################
 if [[ -n $yarn && $yarn == true ]]; then
     if command -v yarn > /dev/null ; then
+        yarn_aux=$(yarn config list | grep -P 'proxy|http-proxy|strict-ssl')
+        yarn_aux2=$(yarn config list | grep -P 'info|proxy|http-proxy|strict-ssl')
         if [[ $delete == true ]]; then
-            # yarn config delete proxy > /dev/null
-            # yarn config delete https-proxy > /dev/null
-            # yarn config delete strict-ssl > /dev/null
-            printf "... Delete proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+            if [[ -n $yarn_aux ]] ; then
+                delete_yarn_proxy
+            else
+                delete_proxy_msg "yarn" false "no_config"
+            fi
         else
-            # yarn config set proxy ${URL} > /dev/null
-            # yarn config set https-proxy ${URL} > /dev/null
-            # yarn config set strict-ssl false > /dev/null
-            printf "... Set proxy config for yarn: ${BGreen}OK${Color_Off}\n"
+            if [[ -n $yarn_aux ]] ; then
+                if [[ $force == true ]]; then
+                    set_yarn_proxy
+                else
+                    set_proxy_msg "yarn" false "yet_exist" "${yarn_aux2//$'\n'/$'\n'${Color_Off}....${Red} }"
+                fi
+            else
+                set_yarn_proxy
+            fi
         fi
     else
-        printf "The command ${BRed}yarn${Color_Off} is not installed in your system."
+        command_exist "yarn"
     fi
 fi
 
 ######################
 # SYMFONY SETTINGS
 ######################
-if [[ -n $symfony && $symfony == true ]]; then
-    if command -v symfony > /dev/null ; then
-        if [[ $delete == true ]]; then
-            if [[ -z $environment ]]; then
-                # unset http_proxy
-                # unset https_proxy
-                echo
-            fi
-            printf "... Delete proxy config for symfony: ${BGreen}OK${Color_Off}\n"
-        else
-            if [[ -z $environment ]]; then
-                # export http_proxy="${URL}"
-                # export https_proxy="${URL}"
-                echo
-            fi
-            printf "... Set proxy config for symfony: ${BGreen}OK${Color_Off}\n"
-        fi
-    else
-        printf "The command ${BRed}symfony${Color_Off} is not installed in your system."
-    fi
-fi
+# if [[ -n $symfony && $symfony == true ]]; then
+#     if command -v symfony > /dev/null ; then
+#         if [[ $delete == true ]]; then
+#             if [[ -z $environment ]]; then
+#                 # unset http_proxy
+#                 # unset https_proxy
+#                 echo
+#             fi
+#             printf "... Delete proxy config for symfony: ${BGreen}OK${Color_Off}\n"
+#         else
+#             if [[ -z $environment ]]; then
+#                 # export http_proxy="${URL}"
+#                 # export https_proxy="${URL}"
+#                 echo
+#             fi
+#             printf "... Set proxy config for symfony: ${BGreen}OK${Color_Off}\n"
+#         fi
+#     else
+#         command_exist "symfony"
+#     fi
+# fi
 
 printf "\n"
 exit 0

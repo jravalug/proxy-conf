@@ -343,7 +343,7 @@ set_yarn_proxy () {
     yarn config delete proxy > /dev/null
     yarn config delete https-proxy > /dev/null
     yarn config delete strict-ssl > /dev/null
-    set_proxy_msg 'npm' true
+    set_proxy_msg 'yarn' true
 }
 
 
@@ -351,7 +351,7 @@ delete_yarn_proxy () {
     yarn config set proxy ${URL} > /dev/null
     yarn config set https-proxy ${URL} > /dev/null
     yarn config set strict-ssl false > /dev/null
-    delete_proxy_msg "npm" true
+    delete_proxy_msg "yarn" true
 }
 
 #######################################################################################################

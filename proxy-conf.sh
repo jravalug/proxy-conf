@@ -282,6 +282,18 @@ delete_apt_proxy () {
     sudo sed -i '/Acquire::https::Proxy/d' /etc/apt/apt.conf
 }
 
+set_snap_proxy () {
+    sudo snap set system proxy.http="${URL}"
+    sudo snap set system proxy.https="${URL}"
+    set_proxy_msg "snap" true
+}
+
+delete_snap_proxy () {
+    sudo snap unset system proxy.http
+    sudo snap unset system proxy.https
+    delete_proxy_msg "snap" true
+}
+
 set_git_proxy () {
     git config --global http.proxy ${URL}
     set_proxy_msg "git" true
@@ -386,6 +398,7 @@ while [[ $pointer -le $# ]]; do
          -b|--bash) bash=true; all_env=false;;
          -z|--zsh) zsh=true; all_env=false;;
             --apt) apt=true; all_env=false;;
+            --snap) snap=true; all_env=false;;
             --git) git=true; all_env=false;;
             --wget) wget=true; all_env=false;;
             --curl) curl=true; all_env=false;;
@@ -427,6 +440,7 @@ if [[ $all_env == true ]]; then
     bash=true
     zsh=true
     apt=true
+    snap=true
     curl=true
     wget=true
     git=true
@@ -589,6 +603,36 @@ if [[ -n $apt && $apt == true ]]; then
         else 
             set_apt_proxy
         fi
+    fi
+fi
+
+######################
+# SNAP SETTINGS
+######################
+if [[ -n $snap && $snap == true ]]; then
+    if command -v git > /dev/null ; then
+        snap_aux=$(sudo snap get system proxy)
+        snap_aux=${snap_aux//Key\ \ Value/}
+        if [[ $delete == true ]]; then
+            if [[ -n $snap_aux ]] ; then
+                delete_snap_proxy
+            else
+                delete_proxy_msg "snap" false "no_config"
+            fi
+        else
+            if [[ -n $snap_aux ]] ; then
+                if [[ $force == true ]]; then
+                    delete_snap_proxy
+                    set_snap_proxy
+                else
+                    set_proxy_msg "snap" false "yet_exist" "${snap_aux//$'\n'/$'\n'${Color_Off}....${Red} }"
+                fi
+            else
+                set_snap_proxy
+            fi
+        fi
+    else
+        command_exist "git"
     fi
 fi
 

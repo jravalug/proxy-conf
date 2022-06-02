@@ -610,7 +610,7 @@ fi
 # SNAP SETTINGS
 ######################
 if [[ -n $snap && $snap == true ]]; then
-    if command -v git > /dev/null ; then
+    if command -v snap > /dev/null ; then
         snap_aux=$(sudo snap get system proxy)
         snap_aux=${snap_aux//Key\ \ Value/}
         if [[ $delete == true ]]; then
